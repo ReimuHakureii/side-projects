@@ -1,51 +1,73 @@
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 def scrape_website(url):
     try:
-        ### Send an HTTP request to the website
+        # Send an HTTP request to the website
         response = requests.get(url)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
-        ### Parse the website's HTML content
+        # Parse the website's HTML content
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        ### Extract website title
+        # Extract website title
         site_title = soup.title.string if soup.title else "No title found"
         print(f"Website Title: {site_title}\n")
 
-        ### Find all article titles (update the tag and class based on the website's structure)
-        articles = soup.find_all('h2', class_='article-title')  ### Example: update 'h2' and 'article-title'
+        # Find all article titles (update the tag and class based on the website's structure)
+        articles = soup.find_all('h2', class_='article-title')  # Example: update 'h2' and 'article-title'
 
         print("Articles:")
         for idx, article in enumerate(articles, start=1):
             title = article.get_text(strip=True)
             link = article.find('a')['href'] if article.find('a') else "No link"
+            full_link = urljoin(url, link)  # Ensure the link is absolute
             print(f"{idx}. {title}")
-            print(f"   Link: {link}")
+            print(f"   Link: {full_link}")
 
-        ### Find all images on the page
+        # Find all images on the page
         images = soup.find_all('img')
         print("\nImages:")
         for idx, img in enumerate(images, start=1):
-            img_src = img.get('src', 'No source')
+            img_src = urljoin(url, img.get('src', 'No source'))
             img_alt = img.get('alt', 'No alt text')
             print(f"{idx}. Source: {img_src}")
             print(f"   Alt Text: {img_alt}")
 
-        ### Find all hyperlinks on the page
+        # Find all hyperlinks on the page
         links = soup.find_all('a')
         print("\nHyperlinks:")
         for idx, link in enumerate(links, start=1):
-            href = link.get('href', 'No href')
+            href = urljoin(url, link.get('href', 'No href'))
             text = link.get_text(strip=True)
             print(f"{idx}. Text: {text if text else 'No text'}")
             print(f"   URL: {href}")
+
+        # Count and display word frequency in the page's content
+        print("\nWord Frequency:")
+        page_text = soup.get_text()
+        words = page_text.split()
+        word_count = {}
+        for word in words:
+            cleaned_word = word.strip().lower()
+            if cleaned_word:
+                word_count[cleaned_word] = word_count.get(cleaned_word, 0) + 1
+        sorted_word_count = sorted(word_count.items(), key=lambda x: x[1], reverse=True)
+        for word, count in sorted_word_count[:10]:  # Display top 10 most common words
+            print(f"{word}: {count}")
+
+        # Extract meta description and keywords
+        meta_description = soup.find('meta', attrs={'name': 'description'})
+        meta_keywords = soup.find('meta', attrs={'name': 'keywords'})
+        print("\nMeta Information:")
+        print(f"Description: {meta_description['content'] if meta_description and 'content' in meta_description.attrs else 'No description'}")
+        print(f"Keywords: {meta_keywords['content'] if meta_keywords and 'content' in meta_keywords.attrs else 'No keywords'}")
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
 
 if __name__ == "__main__":
-    ### Replace with the website URL you want to scrape
+    # Replace with the website URL you want to scrape
     website_url = "https://example.com/news"
     scrape_website(website_url)
