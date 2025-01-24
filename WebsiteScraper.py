@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 import json
 from collections import Counter
 import re
+import os
 
 def scrape_website(url):
     try:
@@ -97,7 +98,7 @@ def scrape_website(url):
             for heading in headings[tag]:
                 print(f"  - {heading}")
 
-        # Save results to a JSON file
+        # Save results to a JSON file in the same directory as the script
         result = {
             "title": site_title,
             "articles": article_list,
@@ -113,10 +114,12 @@ def scrape_website(url):
             },
             "headings": headings
         }
-        with open('scraped_data.json', 'w', encoding='utf-8') as f:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        output_path = os.path.join(script_dir, 'scraped_data.json')
+        with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=4)
 
-        print("\nResults saved to scraped_data.json")
+        print(f"\nResults saved to {output_path}")
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
