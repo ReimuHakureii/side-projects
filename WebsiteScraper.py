@@ -122,6 +122,6 @@ def scrape_website(url):
         print(f"Error fetching the URL: {e}")
 
 if __name__ == "__main__":
-    # Replace with the website URL you want to scrape
-    website_url = "https://example.com/news"
+    # Ask the user for the website URL
+    website_url = input("Enter the website URL to scrape: ")
     scrape_website(website_url)
