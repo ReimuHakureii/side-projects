@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import json
 from collections import Counter
+import re
 
 def scrape_website(url):
     try:
@@ -70,12 +71,31 @@ def scrape_website(url):
         # Find structured data (JSON-LD)
         print("\nStructured Data (JSON-LD):")
         json_ld = soup.find_all('script', type='application/ld+json')
+        structured_data_list = []
         for idx, script in enumerate(json_ld, start=1):
             try:
                 data = json.loads(script.string)
+                structured_data_list.append(data)
                 print(f"{idx}: {json.dumps(data, indent=2)}")
             except json.JSONDecodeError:
                 print(f"{idx}: Invalid JSON-LD script")
+
+        # Extract contact information (emails and phone numbers)
+        print("\nContact Information:")
+        emails = set(re.findall(r'[\w\.]+@[\w\.]+', page_text))
+        phones = set(re.findall(r'\+?\d[\d\s().-]{7,}\d', page_text))
+        print(f"Emails: {', '.join(emails) if emails else 'None found'}")
+        print(f"Phone Numbers: {', '.join(phones) if phones else 'None found'}")
+
+        # Extract headings (h1, h2, h3, etc.)
+        print("\nHeadings:")
+        headings = {}
+        for i in range(1, 7):
+            tag = f'h{i}'
+            headings[tag] = [heading.get_text(strip=True) for heading in soup.find_all(tag)]
+            print(f"{tag.upper()}:")
+            for heading in headings[tag]:
+                print(f"  - {heading}")
 
         # Save results to a JSON file
         result = {
@@ -85,7 +105,13 @@ def scrape_website(url):
             "hyperlinks": hyperlink_list,
             "word_frequency": sorted_word_count,
             "meta_description": meta_description['content'] if meta_description and 'content' in meta_description.attrs else None,
-            "meta_keywords": meta_keywords['content'] if meta_keywords and 'content' in meta_keywords.attrs else None
+            "meta_keywords": meta_keywords['content'] if meta_keywords and 'content' in meta_keywords.attrs else None,
+            "structured_data": structured_data_list,
+            "contact_information": {
+                "emails": list(emails),
+                "phone_numbers": list(phones)
+            },
+            "headings": headings
         }
         with open('scraped_data.json', 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=4)
