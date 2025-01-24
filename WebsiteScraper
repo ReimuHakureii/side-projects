@@ -1,0 +1,51 @@
+import requests
+from bs4 import BeautifulSoup
+
+def scrape_website(url):
+    try:
+        ### Send an HTTP request to the website
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+
+        ### Parse the website's HTML content
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        ### Extract website title
+        site_title = soup.title.string if soup.title else "No title found"
+        print(f"Website Title: {site_title}\n")
+
+        ### Find all article titles (update the tag and class based on the website's structure)
+        articles = soup.find_all('h2', class_='article-title')  ### Example: update 'h2' and 'article-title'
+
+        print("Articles:")
+        for idx, article in enumerate(articles, start=1):
+            title = article.get_text(strip=True)
+            link = article.find('a')['href'] if article.find('a') else "No link"
+            print(f"{idx}. {title}")
+            print(f"   Link: {link}")
+
+        ### Find all images on the page
+        images = soup.find_all('img')
+        print("\nImages:")
+        for idx, img in enumerate(images, start=1):
+            img_src = img.get('src', 'No source')
+            img_alt = img.get('alt', 'No alt text')
+            print(f"{idx}. Source: {img_src}")
+            print(f"   Alt Text: {img_alt}")
+
+        ### Find all hyperlinks on the page
+        links = soup.find_all('a')
+        print("\nHyperlinks:")
+        for idx, link in enumerate(links, start=1):
+            href = link.get('href', 'No href')
+            text = link.get_text(strip=True)
+            print(f"{idx}. Text: {text if text else 'No text'}")
+            print(f"   URL: {href}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching the URL: {e}")
+
+if __name__ == "__main__":
+    ### Replace with the website URL you want to scrape
+    website_url = "https://example.com/news"
+    scrape_website(website_url)
