@@ -98,6 +98,45 @@ def scrape_website(url):
             for heading in headings[tag]:
                 print(f"  - {heading}")
 
+        # Extract tables and their contents
+        print("\nTables:")
+        tables = soup.find_all('table')
+        table_list = []
+        for idx, table in enumerate(tables, start=1):
+            rows = table.find_all('tr')
+            table_data = []
+            for row in rows:
+                cells = row.find_all(['td', 'th'])
+                cell_data = [cell.get_text(strip=True) for cell in cells]
+                table_data.append(cell_data)
+            table_list.append(table_data)
+            print(f"Table {idx}:")
+            for row in table_data:
+                print(f"  {row}")
+
+        # Extract forms and their input fields
+        print("\nForms:")
+        forms = soup.find_all('form')
+        form_list = []
+        for idx, form in enumerate(forms, start=1):
+            form_details = {
+                "action": form.get('action', 'No action'),
+                "method": form.get('method', 'GET').upper(),
+                "inputs": []
+            }
+            inputs = form.find_all('input')
+            for input_tag in inputs:
+                input_details = {
+                    "name": input_tag.get('name', 'No name'),
+                    "type": input_tag.get('type', 'text'),
+                    "value": input_tag.get('value', '')
+                }
+                form_details["inputs"].append(input_details)
+            form_list.append(form_details)
+            print(f"Form {idx}: Action: {form_details['action']}, Method: {form_details['method']}")
+            for input_field in form_details['inputs']:
+                print(f"  Input: {input_field}")
+
         # Save results to a JSON file in the same directory as the script
         result = {
             "title": site_title,
@@ -112,7 +151,9 @@ def scrape_website(url):
                 "emails": list(emails),
                 "phone_numbers": list(phones)
             },
-            "headings": headings
+            "headings": headings,
+            "tables": table_list,
+            "forms": form_list
         }
         script_dir = os.path.dirname(os.path.abspath(__file__))
         output_path = os.path.join(script_dir, 'scraped_data.json')
