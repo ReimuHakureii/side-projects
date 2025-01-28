@@ -155,12 +155,16 @@ def scrape_website(url):
             "tables": table_list,
             "forms": form_list
         }
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        output_path = os.path.join(script_dir, 'scraped_data.json')
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(result, f, ensure_ascii=False, indent=4)
 
-        print(f"\nResults saved to {output_path}")
+        save_json = input ("\nDo you want to save the scraped data as a JSON file? (yes/no): ").strip().lower()
+        if save_json == 'yes':
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            output_path = os.path.join(script_dir, 'scraped_data.json')
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(result, f, ensure_ascii=False, indent=4)
+            print(f"\nResults saved to: {output_path}")
+        else:
+            print("\nResults not saved.")
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
