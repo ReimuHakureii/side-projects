@@ -2,6 +2,8 @@ import socket
 import threading
 from queue import Queue
 import time
+import json
+import os
 
 # Lock for thread-safe output
 print_lock = threading.Lock()
@@ -43,7 +45,7 @@ def worker(host, port_queue, timeout, results):
         port = port_queue.get()
         is_open, service = scan_port(host, port, timeout)
         if is_open:
-            results.append((port, service))
+            results.append({"port": port, "service": service})
         port_queue.task_done()
 
 # Main function to handle input and scanning
@@ -83,10 +85,8 @@ def port_scanner():
     # Get timeout
     timeout = float(input("Enter the connection timeout in seconds (default: 1.0): ").strip() or 1.0)
 
-    # Prepare for logging
-    log_file = input("Enter the log file name (default: scan_results.txt): ").strip() or "scan_results.txt"
-    
     # Perform the scan
+    results_data = []
     for host in hosts:
         print(f"\nStarting scan for {host}...\n")
         try:
@@ -114,16 +114,28 @@ def port_scanner():
         for thread in threads:
             thread.join()
 
-        # Display and log results
-        with open(log_file, "a") as log:
-            log.write(f"Results for {host} ({target_ip}):\n")
-            if results:
-                for port, service in sorted(results):
-                    log.write(f"Port {port}: {service}\n")
-                print(f"\nScan for {host} completed. {len(results)} open ports found. Results saved to {log_file}\n")
-            else:
-                log.write("No open ports found.\n")
-                print(f"\nScan for {host} completed. No open ports found.\n")
+        # Store results for this host
+        results_data.append({
+            "host": host,
+            "ip": target_ip,
+            "open_ports": results,
+        })
+
+        # Print summary
+        if results:
+            print(f"\nScan for {host} completed. {len(results)} open ports found.\n")
+        else:
+            print(f"\nScan for {host} completed. No open ports found.\n")
+
+    # Ask user if they want to save results as JSON
+    save_json = input("Do you want to save the results as a JSON file? (yes/no): ").strip().lower()
+    if save_json == "yes":
+        json_file = "scan_results.json"
+        with open(json_file, "w") as f:
+            json.dump(results_data, f, indent=4)
+        print(f"\nResults saved to {os.path.abspath(json_file)}")
+    else:
+        print("\nResults were not saved.")
 
 if __name__ == "__main__":
     port_scanner()
