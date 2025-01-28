@@ -1,80 +1,129 @@
 import socket
 import threading
 from queue import Queue
+import time
 
-# Lock for printing to prevent jumbled output in multithreading
+# Lock for thread-safe output
 print_lock = threading.Lock()
 
+# Common ports for quick scanning
+COMMON_PORTS = {
+    20: "FTP Data",
+    21: "FTP Control",
+    22: "SSH",
+    23: "Telnet",
+    25: "SMTP",
+    53: "DNS",
+    80: "HTTP",
+    110: "POP3",
+    143: "IMAP",
+    443: "HTTPS",
+    3306: "MySQL",
+    3389: "RDP",
+    8080: "HTTP Proxy",
+}
+
 # Function to scan a specific port
-def scan_port(host, port):
+def scan_port(host, port, timeout):
     try:
-        # Create a socket object
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1)  # Set a timeout for the connection
-            # Attempt to connect to the port
+            s.settimeout(timeout)
             if s.connect_ex((host, port)) == 0:
+                service = COMMON_PORTS.get(port, "Unknown Service")
                 with print_lock:
-                    print(f"[OPEN] Port {port} is open on {host}")
-            else:
-                with print_lock:
-                    print(f"[CLOSED] Port {port} is closed on {host}")
-    except socket.error as e:
-        with print_lock:
-            print(f"[ERROR] Unable to scan port {port}: {e}")
+                    print(f"[OPEN] {host}:{port} - {service}")
+                return True, service
+    except socket.error:
+        pass
+    return False, None
 
 # Worker function for threading
-def worker(host, port_queue):
+def worker(host, port_queue, timeout, results):
     while not port_queue.empty():
         port = port_queue.get()
-        scan_port(host, port)
+        is_open, service = scan_port(host, port, timeout)
+        if is_open:
+            results.append((port, service))
         port_queue.task_done()
 
-# Main function to handle input and start scanning
+# Main function to handle input and scanning
 def port_scanner():
-    print("Python Port Scanner")
-    print("===================")
+    print("Python Advanced Port Scanner")
+    print("============================\n")
     
-    # Get target host and ports to scan
-    host = input("Enter the target host (e.g., 192.168.1.1 or example.com): ").strip()
-    port_range = input("Enter the port range to scan (e.g., 1-1024): ").strip()
+    # Get host(s) from the user
+    hosts = input("Enter target host(s) (comma-separated, e.g., example.com, 192.168.1.1): ").strip().split(",")
+    hosts = [host.strip() for host in hosts]
     
-    try:
-        # Resolve host to an IP address
-        target_ip = socket.gethostbyname(host)
-        print(f"\nScanning target {host} ({target_ip})...\n")
-    except socket.gaierror:
-        print("[ERROR] Unable to resolve host. Please check the hostname.")
-        return
-
-    try:
-        # Parse the port range
+    # Ask for scan mode
+    print("\nScan Mode:")
+    print("1. Scan specific port")
+    print("2. Scan range of ports")
+    print("3. Scan common ports")
+    scan_mode = input("Choose a scan mode (1/2/3): ").strip()
+    
+    # Handle port inputs based on mode
+    ports = []
+    if scan_mode == "1":
+        port = int(input("Enter the specific port to scan: ").strip())
+        ports = [port]
+    elif scan_mode == "2":
+        port_range = input("Enter the port range (e.g., 20-80): ").strip()
         start_port, end_port = map(int, port_range.split('-'))
-        if start_port < 1 or end_port > 65535 or start_port > end_port:
-            raise ValueError
-    except ValueError:
-        print("[ERROR] Invalid port range. Please use the format 'start-end' (e.g., 1-1024).")
+        ports = list(range(start_port, end_port + 1))
+    elif scan_mode == "3":
+        ports = list(COMMON_PORTS.keys())
+    else:
+        print("[ERROR] Invalid scan mode.")
         return
+
+    # Get thread count
+    num_threads = int(input("Enter the number of threads (default: 50): ").strip() or 50)
     
-    # Create a queue for ports
-    port_queue = Queue()
-    for port in range(start_port, end_port + 1):
-        port_queue.put(port)
+    # Get timeout
+    timeout = float(input("Enter the connection timeout in seconds (default: 1.0): ").strip() or 1.0)
 
-    # Number of threads
-    num_threads = 50
+    # Prepare for logging
+    log_file = input("Enter the log file name (default: scan_results.txt): ").strip() or "scan_results.txt"
+    
+    # Perform the scan
+    for host in hosts:
+        print(f"\nStarting scan for {host}...\n")
+        try:
+            target_ip = socket.gethostbyname(host)
+        except socket.gaierror:
+            print(f"[ERROR] Unable to resolve host: {host}")
+            continue
 
-    # Create and start threads
-    threads = []
-    for _ in range(num_threads):
-        thread = threading.Thread(target=worker, args=(target_ip, port_queue))
-        threads.append(thread)
-        thread.start()
+        print(f"Resolved {host} to {target_ip}\n")
+        port_queue = Queue()
+        for port in ports:
+            port_queue.put(port)
 
-    # Wait for all threads to finish
-    for thread in threads:
-        thread.join()
+        # List to store results
+        results = []
 
-    print("\nScan complete!")
+        # Create threads
+        threads = []
+        for _ in range(num_threads):
+            thread = threading.Thread(target=worker, args=(target_ip, port_queue, timeout, results))
+            thread.start()
+            threads.append(thread)
+
+        # Wait for all threads to finish
+        for thread in threads:
+            thread.join()
+
+        # Display and log results
+        with open(log_file, "a") as log:
+            log.write(f"Results for {host} ({target_ip}):\n")
+            if results:
+                for port, service in sorted(results):
+                    log.write(f"Port {port}: {service}\n")
+                print(f"\nScan for {host} completed. {len(results)} open ports found. Results saved to {log_file}\n")
+            else:
+                log.write("No open ports found.\n")
+                print(f"\nScan for {host} completed. No open ports found.\n")
 
 if __name__ == "__main__":
     port_scanner()
